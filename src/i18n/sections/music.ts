@@ -14,7 +14,7 @@ export type MusicText = {
   calibrateLine: (line: string) => string;
   seekLine: (line: string) => string;
   diagnostics: {
-    title: string; dismiss: string; details: string; update: string; empty: string; openFailed: string; kugou: string; soda: string;
+    title: string; dismiss: string; details: string; update: string; empty: string; openFailed: string; kugou: string; soda: string; lx: string;
     ok: (player: string) => string;
     needsUpdate: (player: string) => string;
     smtcOff: (player: string) => string;
@@ -73,6 +73,7 @@ export const zhCN: MusicText = {
     title: "播放器兼容性", dismiss: "收起，不再自动弹出", details: "了解详情", update: "打开官网", empty: "未检测到播放器", openFailed: "无法打开链接",
     kugou: "在酷狗的设置 → 常规设置 → 播放 → 支持系统播放控制中开启后即可同步进度",
     soda: "未检测到汽水音乐的系统媒体会话，请更新客户端并播放一首歌",
+    lx: "歌词来自 LX Music 自己的「开放 API 服务」：在它的「设置 → 开放 API」里启用即可；端口与「歌词」设置里的一致（默认 23330）。",
     ok: () => "进度同步正常",
     needsUpdate: () => "QQ 音乐未提供进度，版本低于 21.10.2962，可尝试更新；歌词仍按估算显示",
     smtcOff: (player) => `在${player}设置里打开系统媒体控制后即可同步进度`,
@@ -133,6 +134,7 @@ export const en: MusicText = {
     title: "Player compatibility", dismiss: "Hide; don't pop up again", details: "Learn more", update: "Open website", empty: "No players detected", openFailed: "Could not open link",
     kugou: "In Kugou, enable Settings → General settings → Playback → Support system media controls to sync progress.",
     soda: "No system media session from Soda Music. Update the player and play a song.",
+    lx: "Lyrics come from LX Music's own open API service: turn it on under Settings → Open API there. Its port matches the one in Lyrics settings (23330 unless changed).",
     ok: () => "Progress sync is working",
     needsUpdate: () => "QQ Music provides no progress and its version is below 21.10.2962. Try updating; lyrics still use estimated timing.",
     smtcOff: (player) => `Enable system media controls in ${player}'s settings to sync progress.`,

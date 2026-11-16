@@ -29,13 +29,41 @@ const CREDIT_WORDS: &[&str] = &[
     "作词", "作曲", "编曲", "词", "曲", "制作人", "制作", "监制", "和声", "混音", "母带", "录音", "吉他", "贝斯", "鼓",
     "键盘", "弦乐", "出品", "发行", "演唱", "原唱", "翻唱", "op", "sp", "lyrics", "lyricist", "composer", "arranger",
     "producer", "written by",
+    // The credit block Kugou and NetEase songs carry: where it was recorded and mixed, who planned
+    // and marketed it, who holds the rights.
+    "混音棚", "录音棚", "录音室", "制作公司", "出品人", "企划", "策划", "推广", "统筹", "宣发", "营销", "鸣谢",
+    "特别鸣谢", "词曲", "配唱", "版权",
 ];
+
+/// Role names some sources put in Latin letters after the Chinese one: "曲Composer：李浩瑞",
+/// "制作人Producer：刘涛", "混音师Mixing Engineer：李越". A role written this way credits someone
+/// even though it never equals a whole `CREDIT_WORDS` entry.
+const LATIN_ROLES: &[&str] = &[
+    "composer", "lyricist", "arranger", "producer", "mixing", "mastering", "engineer", "guitar", "bass", "drum",
+    "drums", "keyboard", "strings", "vocal", "vocals", "backing", "chorus", "recording", "recorded", "publisher",
+    "design", "programming", "percussion", "harmonica", "piano", "saxophone", "harmony",
+];
+
+/// Whether the part before a colon names a role in Latin letters.
+fn latin_role(head: &str) -> bool {
+    head.split(|c: char| !c.is_ascii_alphabetic())
+        .filter(|word| !word.is_empty())
+        .any(|word| LATIN_ROLES.contains(&word))
+}
+
+/// Whether a role part mixes Chinese and Latin letters, as sources that write the role twice do:
+/// "曲Composer", "艺人统筹Artist coordination", "特别合作Special cooperation". Sung lines put the
+/// colon after the Chinese words only ("他说：…"), so a mixed head names a role.
+fn mixed_script(head: &str) -> bool {
+    head.chars().any(|c| c.is_ascii_alphabetic()) && head.chars().any(|c| ('\u{4E00}'..='\u{9FFF}').contains(&c))
+}
 
 /// Whether a line credits someone rather than being sung.
 pub(super) fn is_credit(text: &str, title: &str) -> bool {
     let text = fold(text);
     if let Some((head, _)) = text.split_once([':', '：']) {
-        if CREDIT_WORDS.contains(&head.trim()) {
+        let head = head.trim();
+        if CREDIT_WORDS.contains(&head) || mixed_script(head) || latin_role(head) {
             return true;
         }
     }
@@ -101,7 +129,9 @@ pub(super) fn lrc_lines(lrc: &str) -> Vec<(u64, String)> {
             let (time, text) = rest.split_once(']')?;
             let (minutes, seconds) = time.split_once(':')?;
             let seconds: f64 = seconds.parse().ok()?;
-            let ms = minutes.parse::<u64>().ok()? * 60_000 + (seconds * 1000.0).round() as u64;
+            if !seconds.is_finite() || !(0.0..60.0).contains(&seconds) { return None; }
+            let ms = minutes.parse::<u64>().ok()?.checked_mul(60_000)?
+                .checked_add((seconds * 1000.0).round() as u64)?;
             Some((ms, text.trim().to_string()))
         })
         .collect()
@@ -124,6 +154,12 @@ mod tests {
     use super::*;
 
     #[test]
+    fn malformed_times_are_rejected_without_wrapping_or_panicking() {
+        let input = "[18446744073709551615:00]overflow\n[00:NaN]nan\n[00:inf]infinite\n[00:-1]negative\n[00:60]invalid\n[00:01.500]valid";
+        assert_eq!(lrc_lines(input), [(1500, "valid".to_owned())]);
+    }
+
+    #[test]
     fn credits_and_the_heading_line_are_dropped() {
         assert!(is_credit("作词：卡夫", "余香"));
         assert!(is_credit("作曲 : 张小九", "余香"));
@@ -133,6 +169,15 @@ mod tests {
         assert!(!is_credit("Yesterday - all my troubles seemed so far away", "Something"));
         assert!(!is_credit("划一根火柴 将慵倦的夜点亮", "余香"));
         assert!(!is_credit("时间：慢慢调养", "余香"));
+        // Roles written in both languages at once still credit someone.
+        assert!(is_credit("曲Composer：李浩瑞/刘涛", "篇章"));
+        assert!(is_credit("制作人Producer: 刘涛", "篇章"));
+        assert!(is_credit("混音师Mixing Engineer：李越", "篇章"));
+        assert!(is_credit("艺人统筹Artist coordination ：张韶轩", "篇章"));
+        assert!(is_credit("Mixing Engineer：李越", "篇章"));
+        assert!(!is_credit("曲终人散：风停了", "篇章"));
+        assert!(!is_credit("他说：我们走吧", "篇章"));
+        assert!(!is_credit("Baby: I love you", "Yesterday"));
     }
 
     #[test]

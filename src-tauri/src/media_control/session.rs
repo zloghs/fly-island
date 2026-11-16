@@ -596,6 +596,11 @@ pub(super) fn repeat_mode_label(mode: RepeatMode) -> &'static str {
 /// family name) into a short, human-friendly source label for the island.
 pub(super) fn friendly_app_label(id: &str) -> String {
     let lowered = id.to_ascii_lowercase();
+    // LX Music's AUMID is `cn.toside.music.desktop[.netease]`, which the table below would read as
+    // NetEase Cloud Music; it is a different player, with its own lyrics.
+    if crate::lx_music::is_app(&lowered) {
+        return "LX Music".to_string();
+    }
     let known = [
         ("spotify", "Spotify"),
         ("chrome", "Chrome"),

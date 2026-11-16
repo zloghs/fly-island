@@ -23,8 +23,37 @@
   to { background-position: 0 0; }
 }
 
+/*
+ * A line wider than the space it has slides left while it is sung, so the whole of it is readable
+ * and the words light up where the singing is. The fade at the right edge says there is more.
+ */
+.collapsed-lyric--overflow {
+  mask-image: linear-gradient(90deg, #000 calc(100% - 10px), transparent);
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 10px), transparent);
+}
+
+.collapsed-lyric__text {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.collapsed-lyric__text--follow {
+  animation-name: collapsed-lyric-follow;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+
+@keyframes collapsed-lyric-follow {
+  to {
+    transform: translateX(var(--collapsed-lyric-shift, 0));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .collapsed-lyric__word { animation-timing-function: step-start; }
+
+  /* No sliding: the line is cut at the island's edge, and the words jump rather than fill. */
+  .collapsed-lyric__text--follow { animation: none; }
 }
 
 /* The song's cover beside it, when Appearance → Collapsed island asks for it. */

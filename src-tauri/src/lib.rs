@@ -5,6 +5,7 @@ mod clipboard_window;
 mod file_shelf;
 mod island;
 mod lyrics;
+mod lx_music;
 mod media_control;
 mod media_plugins;
 mod plugin_host;
@@ -128,6 +129,7 @@ pub fn run() {
             media_plugins;
             plugin_host;
             lyrics;
+            lx_music;
             clipboard_history;
             translation;
             settings_window

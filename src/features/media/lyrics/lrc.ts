@@ -134,3 +134,16 @@ export function withTranslations(lines: LyricLine[], translation: LyricLine[]): 
 export function wordFill(word: LyricWord, positionMs: number) {
   return { delayMs: Math.round(word.startMs - positionMs), durationMs: Math.max(1, word.endMs - word.startMs) };
 }
+
+/**
+ * When `lines[index]` stops being sung: with its last word, at the next line's start, or
+ * `fallbackMs` later when nothing follows it (the last line of a song). 0 when there is no such
+ * line. The collapsed island slides a line too wide for it over exactly this span.
+ */
+export function lineEndMs(lines: LyricLine[], index: number, fallbackMs = 6_000): number {
+  const line = lines[index];
+  if (!line) return 0;
+  const lastWord = line.words?.[line.words.length - 1];
+  if (lastWord && lastWord.endMs > line.timeMs) return lastWord.endMs;
+  return lines[index + 1]?.timeMs ?? line.timeMs + fallbackMs;
+}

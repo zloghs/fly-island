@@ -1,11 +1,15 @@
 import { SettingsGroup } from "../../../components/settings/SettingsGroup";
+import { SettingsNumberRow } from "../../../components/settings/SettingsNumberRow";
 import { SettingsToggleRow } from "../../../components/settings/SettingsToggleRow";
 import type { IslandSettings } from "../../appearance/types";
 import { useTranslation } from "../../../i18n";
+import { useLxMusicStatus } from "../useLxMusicStatus";
+import "./LyricsSettingsSection.css";
 
 /**
- * Settings → Music → Lyrics: looking lyrics up online, and the Chinese sources with them. Timing
- * is fixed per song on the music page itself (LyricsOffsetControl).
+ * Settings → Music → Lyrics: looking lyrics up online, the Chinese sources with them, and where
+ * LX Music serves its own. Timing is fixed per song on the music page itself
+ * (LyricsOffsetControl).
  */
 export function LyricsSettingsSection({
   settings,
@@ -15,6 +19,15 @@ export function LyricsSettingsSection({
   onSettingsChange: (settings: IslandSettings) => void;
 }) {
   const text = useTranslation().settings.lyrics;
+  const lx = useLxMusicStatus(settings.lyricsLxPort);
+  // Before the first answer there is nothing to say, which is not the same as not connected.
+  const lxLine = lx.failed
+    ? text.lxOff
+    : lx.status
+      ? lx.status.name.trim()
+        ? text.lxConnected(lx.status.name)
+        : text.lxIdle
+      : null;
 
   return (
     <SettingsGroup title={text.title} footer={text.hint}>
@@ -37,6 +50,19 @@ export function LyricsSettingsSection({
         title={text.wordFill}
         checked={settings.lyricWordFill}
         onChange={(lyricWordFill) => onSettingsChange({ ...settings, lyricWordFill })}
+      />
+      <SettingsNumberRow
+        title={text.lx}
+        description={
+          <>
+            {lxLine && <span className="lyrics-settings__line">{lxLine}</span>}
+            {text.lxHint}
+          </>
+        }
+        value={settings.lyricsLxPort}
+        min={1}
+        max={65535}
+        onChange={(lyricsLxPort) => onSettingsChange({ ...settings, lyricsLxPort })}
       />
     </SettingsGroup>
   );

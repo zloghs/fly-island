@@ -16,12 +16,15 @@ const anchor = now;
 let finish: ((value: unknown) => void) | undefined;
 const calls: string[] = [];
 const lrc = "[00:01.00]first\n[00:05.00]second\n[00:09.00]third";
+// One line far wider than the 240px fixture, so it has to slide to be read.
+const longLrc = "[00:01.00]这是一句特别特别长的歌词，长到收起的岛一行放不下，必须整句向左滑过去才能看完\n[00:21.00]下一句";
 mockIPC((command, payload) => {
   if (command !== "get_lyrics") return null;
   const { title } = (payload as { query: { title: string } }).query;
   calls.push(title);
   if (title === "late") return new Promise((resolve) => { finish = resolve; });
   if (title === "failed") return Promise.reject(new Error("lookup failed fixture"));
+  if (title === "long") return { lrc: longLrc };
   return { lrc };
 });
 async function render(title: string, active: boolean, durationMs = 0) {
@@ -55,6 +58,26 @@ try {
   await render("prefetched", false);
   await render("failed", false);
   check(calls.filter((title) => title === "failed").length === 2, "失败缓存过期后可重试");
+  // A line too wide for the island slides over exactly the span it is sung; a short one stays put.
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  now = anchor + 5000;
+  await render("long", true, 60_000);
+  const box = document.querySelector(".collapsed-lyric")!;
+  const inner = box.firstElementChild as HTMLElement;
+  check(inner.scrollWidth > box.clientWidth && box.classList.contains("collapsed-lyric--overflow"),
+    `长句按超出的宽度滑动（${inner.scrollWidth} > ${box.clientWidth}）`);
+  check(inner.style.animationDelay === "-4000ms", `滑动从这句已唱到的位置开始（${inner.style.animationDelay}）`);
+  check(inner.style.animationDuration === "20000ms", `滑动与这句同时结束（${inner.style.animationDuration}）`);
+  if (reduced) {
+    check(getComputedStyle(inner).animationName === "none", "要求减少动效时不滑动");
+  } else {
+    const before = getComputedStyle(inner).transform;
+    check(getComputedStyle(inner).animationName === "collapsed-lyric-follow", "整句随播放向左移动");
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 300)); });
+    check(getComputedStyle(inner).transform !== before, "文字确实在移动");
+  }
+  await render("prefetched", true, 60_000);
+  check(!document.querySelector(".collapsed-lyric")!.classList.contains("collapsed-lyric--overflow"), "放得下的句子不滑动");
   results.dataset.result = "passed";
   results.textContent = passed.join("\n");
 } catch (error) {
