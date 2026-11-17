@@ -8,14 +8,14 @@
 //! fills each character in turn.
 
 use super::found::{from_lines, lrc_lines, word_tag, FoundLyrics};
-use super::matching::{close_duration, fold, same_artist};
+use super::matching::{close_duration, fold, same_native_track};
 use crate::lx_music;
 
 /// LX's lyrics for the song it plays, when that is the song the island asked about.
 /// `Ok(None)` when LX plays something else (a track change mid-lookup) or has no lyrics for it.
-pub(super) async fn fetch(port: u16, title: &str, artist: &str, duration_ms: i64) -> Result<Option<FoundLyrics>, String> {
+pub(super) async fn fetch(port: u16, title: &str, artist: &str, duration_ms: i64, album: &str) -> Result<Option<FoundLyrics>, String> {
     let status = lx_music::status(port).await?;
-    if !matches_track(&status, title, artist, duration_ms) {
+    if !matches_track(&status, title, artist, duration_ms) || !matches_album(&status, album) {
         return Ok(None);
     }
     let all = lx_music::lyrics(port).await?;
@@ -23,7 +23,7 @@ pub(super) async fn fetch(port: u16, title: &str, artist: &str, duration_ms: i64
     // lyric request so a mid-request track change cannot poison the old song's cache.
     let after = lx_music::status(port).await?;
     if status.name != after.name || status.singer != after.singer || status.album_name != after.album_name
-        || !matches_track(&after, title, artist, duration_ms) {
+        || !matches_track(&after, title, artist, duration_ms) || !matches_album(&after, album) {
         return Ok(None);
     }
     let duration_ms = (status.duration * 1000.0).round() as i64;
@@ -32,8 +32,14 @@ pub(super) async fn fetch(port: u16, title: &str, artist: &str, duration_ms: i64
 
 fn matches_track(status: &lx_music::LxStatus, title: &str, artist: &str, duration_ms: i64) -> bool {
     // Search matching strips Live/remaster suffixes; a local player must retain them.
-    !title.trim().is_empty() && fold(title) == fold(&status.name) && same_artist(artist, &status.singer)
+    let artist_matches = artist.trim().is_empty()
+        || same_native_track((title, artist, duration_ms), (&status.name, &status.singer, (status.duration * 1000.0).round() as i64));
+    !title.trim().is_empty() && fold(title) == fold(&status.name) && artist_matches
         && close_duration(duration_ms, (status.duration * 1000.0).round() as i64)
+}
+
+fn matches_album(status: &lx_music::LxStatus, album: &str) -> bool {
+    album.trim().is_empty() || status.album_name.trim().is_empty() || fold(album) == fold(&status.album_name)
 }
 
 /// LX's lyrics and translation as the island shows them: the sung lines with their times, credits
@@ -186,7 +192,7 @@ mod tests {
         let status = tauri::async_runtime::block_on(crate::lx_music::status(port)).expect("LX Music answers on its default port");
         println!("playing: {} - {} ({:.1}s)", status.name, status.singer, status.duration);
         assert!(!status.name.is_empty(), "a song plays");
-        let found = tauri::async_runtime::block_on(super::fetch(port, &status.name, &status.singer, 0))
+        let found = tauri::async_runtime::block_on(super::fetch(port, &status.name, &status.singer, 0, &status.album_name))
             .expect("the API is reachable")
             .expect("the playing song has lyrics");
         println!("{} lines, translation: {}", found.lrc.lines().count(), found.translation.is_some());

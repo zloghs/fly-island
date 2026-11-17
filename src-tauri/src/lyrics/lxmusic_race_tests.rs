@@ -7,7 +7,7 @@ const LYRIC: &str = r#"{"lyric":"[00:01.00]sung words"}"#;
 #[test]
 fn a_track_change_during_the_lyric_request_is_rejected() {
     let server = Server::new(vec![json(STATUS), json(LYRIC), json(&STATUS.replace("Song A", "Song B"))]);
-    let result = tauri::async_runtime::block_on(fetch(server.port, "Song A", "Artist", 180_000)).unwrap();
+    let result = tauri::async_runtime::block_on(fetch(server.port, "Song A", "Artist", 180_000, "Album")).unwrap();
     assert!(result.is_none());
     let requests = server.finish();
     assert_eq!(requests.len(), 3);
@@ -19,7 +19,7 @@ fn a_track_change_during_the_lyric_request_is_rejected() {
 #[test]
 fn a_stable_track_keeps_its_lyrics_and_duration() {
     let server = Server::new(vec![json(STATUS), json(LYRIC), json(STATUS)]);
-    let found = tauri::async_runtime::block_on(fetch(server.port, "Song A", "Artist", 180_000)).unwrap().unwrap();
+    let found = tauri::async_runtime::block_on(fetch(server.port, "Song A", "Artist", 180_000, "Album")).unwrap().unwrap();
     assert!(found.lrc.contains("sung words"));
     assert_eq!(found.duration_ms, Some(180_000));
     assert_eq!(server.finish().len(), 3);
@@ -32,6 +32,15 @@ fn versions_and_durations_are_not_fuzzy_search_matches() {
     assert!(!matches_track(&status, "Song A (Live)", "Artist", 180_000));
     assert!(!matches_track(&status, "Song A", "Artist", 230_000));
     assert!(!matches_track(&status, "Song A", "Other", 180_000));
+    assert!(!matches_track(&status, "Song A", "Artist / Other", 180_000));
+}
+
+#[test]
+fn a_different_album_cannot_supply_the_lyrics() {
+    let server = Server::new(vec![json(STATUS)]);
+    let result = tauri::async_runtime::block_on(fetch(server.port, "Song A", "Artist", 180_000, "Another Album")).unwrap();
+    assert!(result.is_none());
+    assert_eq!(server.finish().len(), 1);
 }
 
 #[test]

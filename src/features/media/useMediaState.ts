@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getMediaState, listenMediaSessionChanged, seekMedia, sendMediaCommand, type MediaCommand, type MediaPlaybackStatus, type MediaState } from "./api";
+import { getLxMusicStatus, getMediaState, listenMediaSessionChanged, seekMedia, sendMediaCommand, type MediaCommand, type MediaPlaybackStatus, type MediaState } from "./api";
+import { isLxMusicPlayer, withLxMusicTimeline } from "./lxMusic";
 import { isIslandMoving } from "../../lib/islandMotion";
 import { AUDIO_ACTIVE_THRESHOLD, DEFAULT_MEDIA_STATE, isSameMediaState } from "./mediaState";
 import { isSameTrack, keptAnchor, steadyAnchor } from "./positionAnchor";
@@ -15,7 +16,7 @@ import { useMusicSourcePriority } from "./useMusicSourcePriority";
  * `showsLevel` says whether the output level is on screen (the collapsed island's waveform);
  * while it is not, the level is neither polled nor folded in, so it re-renders nothing.
  */
-export function useMediaState(enabled = true, showsLevel = true) {
+export function useMediaState(enabled = true, showsLevel = true, lxPort = 23330) {
   const [mediaState, setMediaState] =
     useState<MediaState>(DEFAULT_MEDIA_STATE);
   const [isMediaTrackChanging, setIsMediaTrackChanging] = useState(false);
@@ -23,6 +24,8 @@ export function useMediaState(enabled = true, showsLevel = true) {
     null,
   );
   const mediaTargetRef = useRef<string | null>(null);
+  const lxPortRef = useRef(lxPort);
+  useEffect(() => { lxPortRef.current = lxPort; }, [lxPort]);
   const showsLevelRef = useRef(showsLevel);
   useEffect(() => {
     showsLevelRef.current = showsLevel;
@@ -57,9 +60,17 @@ export function useMediaState(enabled = true, showsLevel = true) {
     const generation = seekGeneration.current;
 
     try {
-      const read = await getMediaState(
+      let read = await getMediaState(
         mediaTargetRef.current ?? undefined,
       );
+      if (isLxMusicPlayer(read.sourceApp)) {
+        try {
+          const status = await getLxMusicStatus(lxPortRef.current);
+          read = withLxMusicTimeline(read, status, Date.now());
+        } catch {
+          // With the local API off, keep the player's existing Windows timeline.
+        }
+      }
       // With no other player in the order to pick, Windows answers with its current session; when
       // that is an archived player the island shows no music, keeping only the session list.
       const nextMediaState: MediaState = read.activeSessionId && archivedIdsRef.current.has(read.activeSessionId)

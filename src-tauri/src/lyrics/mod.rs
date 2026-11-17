@@ -275,12 +275,11 @@ pub async fn get_lyrics(app: AppHandle, query: LyricsQuery) -> Result<Option<Lyr
             return Ok(Some(for_display("local", FoundLyrics { lrc, translation: None, duration_ms: None }, &query.title, &query.artist)));
         }
     }
-    // The player's own lyrics are the song that plays, so they need no search and no network; a
-    // miss (LX has the API off, or plays another song already) falls through to the sources below.
+    // LX owns the recording identity. A temporary API miss must not select a different
+    // version by title from an online source or a legacy cache.
     if let Some(port) = lx_port(&query) {
-        if let Ok(Some(found)) = lxmusic::fetch(port, &query.title, &query.artist, query.duration_ms).await {
-            return Ok(Some(for_display("lxmusic", found, &query.title, &query.artist)));
-        }
+        return lxmusic::fetch(port, &query.title, &query.artist, query.duration_ms, &query.album).await
+            .map(|found| found.map(|found| for_display("lxmusic", found, &query.title, &query.artist)));
     }
     // Native client caches precede online caches, so a newly downloaded word-timed lyric wins.
     if query.chinese {

@@ -25,13 +25,14 @@ mockIPC((command, payload) => {
   if (title === "late") return new Promise((resolve) => { finish = resolve; });
   if (title === "failed") return Promise.reject(new Error("lookup failed fixture"));
   if (title === "long") return { lrc: longLrc };
+  if (title === "lx-retry" && calls.filter((call) => call === title).length === 1) return null;
   return { lrc };
 });
-async function render(title: string, active: boolean, durationMs = 0) {
+async function render(title: string, active: boolean, durationMs = 0, sourceApp: string | null = null, album = "") {
   await act(async () => {
     root.render(<StrictMode><CollapsedLyric active={active}
       mediaState={{ ...DEFAULT_MEDIA_STATE, title, artist: "artist", available: true, playbackStatus: "playing",
-        durationMs, positionMs: 0, updatedAt: anchor }}
+        durationMs, positionMs: 0, updatedAt: anchor, sourceApp, album }}
       lyricsSettings={{ lyricsFolder: "", lyricsOnline: true, lyricsOffsetMs: 0 }} /></StrictMode>);
   });
 }
@@ -67,7 +68,7 @@ try {
   check(inner.scrollWidth > box.clientWidth && box.classList.contains("collapsed-lyric--overflow"),
     `长句按超出的宽度滑动（${inner.scrollWidth} > ${box.clientWidth}）`);
   check(inner.style.animationDelay === "-4000ms", `滑动从这句已唱到的位置开始（${inner.style.animationDelay}）`);
-  check(inner.style.animationDuration === "20000ms", `滑动与这句同时结束（${inner.style.animationDuration}）`);
+  check(inner.style.animationDuration === "19300ms", `滚动提前完成，为句尾留出显示时间（${inner.style.animationDuration}）`);
   if (reduced) {
     check(getComputedStyle(inner).animationName === "none", "要求减少动效时不滑动");
   } else {
@@ -75,9 +76,21 @@ try {
     check(getComputedStyle(inner).animationName === "collapsed-lyric-follow", "整句随播放向左移动");
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 300)); });
     check(getComputedStyle(inner).transform !== before, "文字确实在移动");
+    for (const animation of inner.getAnimations()) animation.currentTime = 19300;
+    const end = inner.getBoundingClientRect();
+    const edge = box.getBoundingClientRect();
+    check(end.right <= edge.right + 1 && end.right >= edge.right - 2, "滚动结束后最后一个字完整进入可见区");
+    check(getComputedStyle(box).maskImage === "none" && getComputedStyle(box).textOverflow === "clip", "句尾不被渐隐或省略号遮住");
   }
   await render("prefetched", true, 60_000);
   check(!document.querySelector(".collapsed-lyric")!.classList.contains("collapsed-lyric--overflow"), "放得下的句子不滑动");
+  await render("lx-retry", true, 60000, "cn.toside.music.desktop", "album-a");
+  check(text() === "lx-retry · artist", "LX 暂无歌词时显示歌名");
+  now += 5001;
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 5100)); });
+  check(calls.filter((call) => call === "lx-retry").length === 2 && text() !== "lx-retry · artist", "LX 无需切歌也会重试并显示稍后加载的歌词");
+  await render("lx-retry", true, 60000, "cn.toside.music.desktop", "album-b");
+  check(calls.filter((call) => call === "lx-retry").length === 3, "同名歌曲更换专辑不复用旧歌词");
   results.dataset.result = "passed";
   results.textContent = passed.join("\n");
 } catch (error) {

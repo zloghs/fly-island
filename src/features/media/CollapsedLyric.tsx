@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { MediaState } from "./api";
 import { lineEndMs, songOffsetKey, wordFill, type LyricWord } from "./lyrics/lrc";
-import { lyricClockAt } from "./lyrics/lyricClock";
+import { lyricClockAt, LYRIC_LEAD_MS } from "./lyrics/lyricClock";
 import { useLyricClock } from "./lyrics/useLyricClock";
 import { useLyrics, type LyricsSettings } from "./lyrics/useLyrics";
 import { useSongOffset } from "./lyrics/useSongOffset";
@@ -27,8 +27,8 @@ function CollapsedSungWords({ words, mediaState, offsetMs, playing }: {
  * Keep prefetching while expanded; only the visible leaf drives the line-change clock.
  *
  * The island keeps one width whatever the line says, so a line too wide for it slides across
- * while it is sung: the movement lasts exactly as long as the line, which keeps the words lighting
- * up at their own times in step with it. A line that fits stays still.
+ * while it is sung, finishing before the next line so its tail can be read.
+ * Word highlighting keeps its own sung times. A line that fits stays still.
  */
 export function CollapsedLyric({
   mediaState,
@@ -48,7 +48,8 @@ export function CollapsedLyric({
   const words = lyricsSettings.lyricWordFill === true && line?.text ? line.words : undefined;
   const { width: overflow, boxRef } = useOverflow(active);
 
-  const span = lines && line ? Math.max(1_200, lineEndMs(lines, index) - line.timeMs) : 0;
+  // Finish before the early line switch, leaving the last words visible for a moment.
+  const span = lines && line ? Math.max(1, lineEndMs(lines, index) - line.timeMs - LYRIC_LEAD_MS - 500) : 0;
   const elapsed = line ? Math.min(Math.max(0, position - line.timeMs), span) : 0;
   const follows = overflow > 0 && span > 0;
   const style = follows
@@ -88,7 +89,9 @@ function useOverflow(active: boolean) {
     const box = boxRef.current;
     if (!box) return;
     const inner = box.firstElementChild;
-    const width = active && inner instanceof HTMLElement ? Math.max(0, inner.scrollWidth - box.clientWidth) : 0;
+    const scale = box.clientWidth > 0 ? box.getBoundingClientRect().width / box.clientWidth : 1;
+    const width = active && inner instanceof HTMLElement && scale > 0
+      ? Math.max(0, Math.ceil(inner.getBoundingClientRect().width / scale) - box.clientWidth) : 0;
     setOverflow((current) => (current === width ? current : width));
   }, [active]);
 
