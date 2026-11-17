@@ -51,6 +51,12 @@ export function LyricsSettingsSection({
         checked={settings.lyricWordFill}
         onChange={(lyricWordFill) => onSettingsChange({ ...settings, lyricWordFill })}
       />
+      <SettingsToggleRow
+        title={text.collapsedAdditional}
+        description={text.collapsedAdditionalHint}
+        checked={settings.collapsedAdditionalLyrics}
+        onChange={(collapsedAdditionalLyrics) => onSettingsChange({ ...settings, collapsedAdditionalLyrics })}
+      />
       <SettingsNumberRow
         title={text.lx}
         description={

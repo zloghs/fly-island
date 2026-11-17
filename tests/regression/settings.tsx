@@ -108,8 +108,17 @@ if (!automated) {
       await checkGroups(category, panel, check);
       if (category === "todos") await checkTodoRotation(panel, check);
       // Appearance 16 -> 19: the page text colour row and the whole-look presets (empty state + name row).
-      // General: v3.2.6 adds Ctrl + wheel and game mode's "still show notifications"; appearance +3 open and collapsed corners; clipboard +1 storage folder.
-      const maxRows = category === "agents" ? 13 : category === "general" ? 16 : category === "appearance" ? 22 : category === "clipboard" ? 9 : 8;
+      // Preserve main's row budgets and include the additional collapsed-lyrics switch.
+      const maxRows = category === "agents" ? 13 : category === "general" ? 16 : category === "appearance" ? 22 : category === "clipboard" ? 9 : category === "music" ? 9 : 8;
+      if (category === "music") {
+        const row = [...panel.querySelectorAll<HTMLElement>(".settings-row")].find((item) => item.textContent?.includes("收起时显示附加歌词"));
+        const toggle = row?.querySelector<HTMLInputElement>("[role='switch']");
+        check(toggle && !toggle.checked, "Additional collapsed lyrics are off by default");
+        await act(async () => { toggle?.click(); });
+        check(JSON.parse(localStorage.getItem("focusd-island-settings") ?? "{}").collapsedAdditionalLyrics === true,
+          "The additional-lyrics switch saves its enabled state");
+        await act(async () => { toggle?.click(); });
+      }
       if (category === "appearance") {
         const row = [...panel.querySelectorAll<HTMLElement>(".settings-row")].find((item) => item.textContent?.includes("贴边圆角"))!;
         const toggle = row.querySelector<HTMLInputElement>("[role='switch']")!;

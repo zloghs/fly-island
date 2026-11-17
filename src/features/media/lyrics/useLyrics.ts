@@ -5,7 +5,7 @@ import { getLyrics } from "./api";
 import { parseLrc, trackKey, withTranslations, type LyricLine } from "./lrc";
 
 export type LyricsSettings = {
-  lyricsFolder: string; lyricsOnline: boolean; lyricsChinese?: boolean; lyricWordFill?: boolean; lyricsLxPort?: number;
+  lyricsFolder: string; lyricsOnline: boolean; lyricsChinese?: boolean; lyricWordFill?: boolean; lyricsLxPort?: number; collapsedAdditionalLyrics?: boolean;
 };
 
 type Found = { lookup: string; lines: LyricLine[]; durationMs: number; expiresAt: number };

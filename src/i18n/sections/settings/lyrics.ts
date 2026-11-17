@@ -6,6 +6,8 @@ export type SettingsLyricsText = {
   chinese: string;
   chineseHint: string;
   wordFill: string;
+  collapsedAdditional: string;
+  collapsedAdditionalHint: string;
   lx: string;
   lxHint: string;
   /** The LX row's second line while its API answers: the song it plays, if any. */
@@ -16,6 +18,8 @@ export type SettingsLyricsText = {
 };
 
 export const zhCN: SettingsLyricsText = {
+  collapsedAdditional: "收起时显示附加歌词",
+  collapsedAdditionalHint: "当前句有翻译时，在原文下方显示；没有翻译时保持单行。",
   wordFill: "逐字歌词填充",
   title: "歌词",
   hint: "找到带时间轴的歌词时，音乐页会跟着播放滚动显示。某首歌的歌词对不上时，可以在音乐页上单独调它的快慢。",
@@ -31,6 +35,8 @@ export const zhCN: SettingsLyricsText = {
 };
 
 export const en: SettingsLyricsText = {
+  collapsedAdditional: "Additional lyrics when collapsed",
+  collapsedAdditionalHint: "Show the current line’s translation underneath. Keep one line when no translation is available.",
   wordFill: "Word-by-word lyric fill",
   title: "Lyrics",
   hint: "When synced lyrics are found, the music page scrolls them along with the song. A song whose lyrics run out of step can be moved on its own on the music page.",

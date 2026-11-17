@@ -4,6 +4,7 @@ export type LyricsSettingValues = {
   lyricsOnline: boolean;
   lyricsChinese: boolean;
   lyricWordFill: boolean;
+  collapsedAdditionalLyrics: boolean;
   /** The port LX Music's own API (its "开放 API 服务") listens on. */
   lyricsLxPort: number;
   lyricsOffsetMs: number;
@@ -21,6 +22,7 @@ export const DEFAULT_LYRICS_SETTINGS: LyricsSettingValues = {
   lyricsOnline: true,
   lyricsChinese: true,
   lyricWordFill: false,
+  collapsedAdditionalLyrics: false,
   lyricsLxPort: DEFAULT_LX_MUSIC_PORT,
   lyricsOffsetMs: 0,
 };
@@ -41,6 +43,7 @@ export function normalizeLyricsSettings(saved: Partial<Record<keyof LyricsSettin
     lyricsOnline: saved?.lyricsOnline !== false,
     lyricsChinese: saved?.lyricsChinese !== false,
     lyricWordFill: saved?.lyricWordFill === true,
+    collapsedAdditionalLyrics: saved?.collapsedAdditionalLyrics === true,
     lyricsLxPort: port(saved?.lyricsLxPort),
   };
 }

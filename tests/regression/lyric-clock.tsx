@@ -25,15 +25,16 @@ mockIPC((command, payload) => {
   if (title === "late") return new Promise((resolve) => { finish = resolve; });
   if (title === "failed") return Promise.reject(new Error("lookup failed fixture"));
   if (title === "long") return { lrc: longLrc };
+  if (title === "translated") return { lrc, translation: "[00:01.00]第一句翻译\n[00:05.00]第二句翻译\n[00:09.00]第三句翻译" };
   if (title === "lx-retry" && calls.filter((call) => call === title).length === 1) return null;
   return { lrc };
 });
-async function render(title: string, active: boolean, durationMs = 0, sourceApp: string | null = null, album = "") {
+async function render(title: string, active: boolean, durationMs = 0, sourceApp: string | null = null, album = "", additional = false) {
   await act(async () => {
     root.render(<StrictMode><CollapsedLyric active={active}
       mediaState={{ ...DEFAULT_MEDIA_STATE, title, artist: "artist", available: true, playbackStatus: "playing",
         durationMs, positionMs: 0, updatedAt: anchor, sourceApp, album }}
-      lyricsSettings={{ lyricsFolder: "", lyricsOnline: true, lyricsOffsetMs: 0 }} /></StrictMode>);
+      lyricsSettings={{ lyricsFolder: "", lyricsOnline: true, lyricsOffsetMs: 0, collapsedAdditionalLyrics: additional }} /></StrictMode>);
   });
 }
 function check(condition: unknown, message: string) {
@@ -91,6 +92,17 @@ try {
   check(calls.filter((call) => call === "lx-retry").length === 2 && text() !== "lx-retry · artist", "LX 无需切歌也会重试并显示稍后加载的歌词");
   await render("lx-retry", true, 60000, "cn.toside.music.desktop", "album-b");
   check(calls.filter((call) => call === "lx-retry").length === 3, "同名歌曲更换专辑不复用旧歌词");
+  now = anchor + 6100;
+  await render("translated", true, 60000);
+  check(!document.querySelector(".collapsed-lyric--additional"), "默认仍显示单行歌词");
+  document.getElementById("fixture")!.style.setProperty("--island-font-scale", "1.2");
+  await render("translated", true, 60000, null, "", true);
+  check(document.querySelector(".collapsed-lyric--additional")?.textContent === "第二句翻译", "开关开启后显示当前句对应的翻译");
+  check(document.querySelector(".collapsed-lyrics")!.getBoundingClientRect().height <= 28, "双行歌词在放大字体时仍完整放入 28px 摘要区域");
+  await render("translated", true, 60000, null, "", false);
+  check(!document.querySelector(".collapsed-lyric--additional"), "关闭开关后恢复单行");
+  await render("prefetched", true, 60000, null, "", true);
+  check(!document.querySelector(".collapsed-lyric--additional"), "没有附加歌词时不留下空白行");
   results.dataset.result = "passed";
   results.textContent = passed.join("\n");
 } catch (error) {

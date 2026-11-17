@@ -212,6 +212,8 @@ export type IslandSettings = {
   lyricsChinese: boolean;
   /** Fill word-timed lyrics as they are sung, in both island states. */
   lyricWordFill: boolean;
+  /** Show the current line's translation below collapsed lyrics when available. */
+  collapsedAdditionalLyrics: boolean;
   /** The port LX Music's own lyrics API listens on. */
   lyricsLxPort: number;
   /** Lyrics shown this many ms later (positive) or earlier than the position Windows reports. */

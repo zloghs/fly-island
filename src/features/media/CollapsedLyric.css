@@ -1,4 +1,24 @@
 /* The lyric line on the collapsed island: the todo text's look; a new line replaces the last at once. */
+.collapsed-lyrics {
+  display: block;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Both lines fit the summary's 28px slot, including enlarged island fonts. */
+.collapsed-lyrics--additional > .collapsed-lyric {
+  font-size: min(12px, calc(12px * var(--island-font-scale, 1)));
+  line-height: 14px;
+}
+
+.collapsed-lyrics--additional > .collapsed-lyric--additional {
+  font-size: min(10px, calc(10px * var(--island-font-scale, 1)));
+  line-height: 12px;
+  font-weight: 400;
+  color: var(--text-2);
+}
+
 .collapsed-lyric {
   display: block;
   min-width: 0;

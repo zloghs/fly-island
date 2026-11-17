@@ -47,6 +47,8 @@ export function CollapsedLyric({
   const line = lines && index >= 0 ? lines[index] : null;
   const words = lyricsSettings.lyricWordFill === true && line?.text ? line.words : undefined;
   const { width: overflow, boxRef } = useOverflow(active);
+  const additional = lyricsSettings.collapsedAdditionalLyrics && line?.text ? line.translation?.trim() : "";
+  const { width: additionalOverflow, boxRef: additionalRef } = useOverflow(active);
 
   // Finish before the early line switch, leaving the last words visible for a moment.
   const span = lines && line ? Math.max(1, lineEndMs(lines, index) - line.timeMs - LYRIC_LEAD_MS - 500) : 0;
@@ -65,6 +67,7 @@ export function CollapsedLyric({
   const contentKey = `${index}:${mediaState.updatedAt}:${offsetMs}:${active}:${playing}:${follows}`;
 
   return (
+    <span className={`collapsed-lyrics${additional ? " collapsed-lyrics--additional" : ""}`}>
     <span className={`collapsed-lyric${follows ? " collapsed-lyric--overflow" : ""}`} ref={boxRef}>
       <span className={`collapsed-lyric__text${follows ? " collapsed-lyric__text--follow" : ""}`}
         key={contentKey} style={style}>
@@ -72,6 +75,14 @@ export function CollapsedLyric({
           words={words} mediaState={mediaState} offsetMs={offsetMs} playing={playing && active}
         /> : line?.text || song}
       </span>
+    </span>
+    {additional && <span className="collapsed-lyric collapsed-lyric--additional" ref={additionalRef}>
+      <span className={`collapsed-lyric__text${additionalOverflow > 0 && span > 0 ? " collapsed-lyric__text--follow" : ""}`}
+        key={`${contentKey}:${additional}`} style={additionalOverflow > 0 && span > 0 ? {
+          "--collapsed-lyric-shift": `${-additionalOverflow}px`, animationDuration: `${span}ms`,
+          animationDelay: `${-elapsed}ms`, animationPlayState: playing && active ? "running" : "paused",
+        } as CSSProperties : undefined}>{additional}</span>
+    </span>}
     </span>
   );
 }
