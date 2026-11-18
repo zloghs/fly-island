@@ -1,0 +1,54 @@
+{
+  "id": "device-battery",
+  "name": { "zh-CN": "设备电量", "en": "Device Battery" },
+  "description": { "zh-CN": "离线读取迈从 K99 V3 / G87 与雷柏 VT0 等 VT 二代设备的电量，在岛上显示充电状态和低电量提示", "en": "Read MCHOSE K99 V3 / G87 and Rapoo VT Gen 2 devices including VT0 offline, with charging status and low-battery indicators" },
+  "version": "0.1.2",
+  "apiVersion": 1,
+  "runtime": { "command": "device-battery.exe" },
+  "permissions": ["panel"],
+  "contributes": ["panel"],
+  "panel": { "icon": "battery" },
+  "settings": [
+    {
+      "key": "scan-seconds",
+      "label": { "zh-CN": "扫描与键盘读取间隔", "en": "Scan and keyboard polling interval" },
+      "type": "select",
+      "default": "30",
+      "options": [
+        { "value": "5", "label": { "zh-CN": "5 秒", "en": "5 seconds" } },
+        { "value": "30", "label": { "zh-CN": "30 秒", "en": "30 seconds" } },
+        { "value": "60", "label": { "zh-CN": "60 秒", "en": "60 seconds" } }
+      ]
+    },
+    { "key": "mchose", "label": { "zh-CN": "迈从键盘", "en": "MCHOSE keyboards" }, "type": "toggle", "default": true },
+    { "key": "rapoo", "label": { "zh-CN": "雷柏鼠标", "en": "Rapoo mice" }, "type": "toggle", "default": true },
+    {
+      "key": "devices",
+      "label": { "zh-CN": "仅显示指定 VID:PID（逗号分隔，留空显示全部）", "en": "Only show VID:PID pairs (comma-separated; empty shows all)" },
+      "type": "text",
+      "default": ""
+    },
+    {
+      "key": "low-percent",
+      "label": { "zh-CN": "低电量阈值（1–50%）", "en": "Low-battery threshold (1–50%)" },
+      "type": "number",
+      "min": 1,
+      "max": 50,
+      "default": "20"
+    },
+    { "key": "diagnostics", "label": { "zh-CN": "显示设备 ID 与原始电量报告", "en": "Show device IDs and raw battery reports" }, "type": "toggle", "default": false },
+    {
+      "key": "language",
+      "label": { "zh-CN": "面板语言", "en": "Panel language" },
+      "type": "select",
+      "default": "zh-CN",
+      "options": [
+        { "value": "zh-CN", "label": { "zh-CN": "简体中文", "en": "Simplified Chinese" } },
+        { "value": "en", "label": { "zh-CN": "英语", "en": "English" } }
+      ]
+    }
+  ],
+  "actions": [
+    { "id": "refresh", "label": { "zh-CN": "重新扫描", "en": "Rescan" } }
+  ]
+}

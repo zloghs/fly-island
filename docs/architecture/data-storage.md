@@ -51,6 +51,8 @@ DSH（issue #51）：`agent_status/dsh_sessions.rs` 只读 `%APPDATA%/dsh-deskto
 
 ## 插件 API v1
 
+`device-battery` 的设备样本、原始电量报告、连接状态和更新时间只存在插件进程内存中；重启或停用即清空。不写设备路径、序列号或电量历史。筛选和轮询等偏好使用宿主已有的非秘密插件 settings 存储，不新增 localStorage key 或文件。
+
 原生应用数据目录下 `plugins-state.json` 保存安装清单、启用状态、非秘密插件 settings、开发模式与索引 URL；临时原子写文件 `plugins-state.json.tmp`。这是需要在前端启动前恢复进程的安装注册表，不扩展或迁移现有 focusd-island-settings。秘密存 Windows 凭据管理器 service `com.focusd.island.plugins`，account `<id>/<setting-key>`，只经 stdin 发给对应插件，不返回前端。
 
 `plugins/<id>/` 存经索引校验的包；`.staging-<id>` / `.backup-<id>` 只用于安装事务。`plugin-logs/<id>.log` 保存有限 stderr。额度、会话和通知仅在内存，停用清空，不落盘。开发目录路径记录在注册表，卸载不会删除开发目录。

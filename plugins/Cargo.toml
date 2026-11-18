@@ -10,5 +10,6 @@ members = [
     "hermes",
     "office-im",
     "eye-care",
+    "device-battery",
 ]
 resolver = "2"

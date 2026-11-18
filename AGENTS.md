@@ -36,7 +36,7 @@ FocuSD Island（仓库名 fly-island）是 Windows 优先的桌面效率工具�
 ```text
 .
 ├── src/                 # React 前端（规则见 src/AGENTS.md）
-├── plugins/             # 独立进程插件工作区；eye-care/ 为护眼计时与休息动作，win32/ 只读系统状态；休息窗口由 src-tauri/src/eye_care/ 与 src/windows/eye-care/ 按需创建
+├── plugins/             # 独立进程插件工作区；eye-care/ 为护眼计时与休息动作，win32/ 只读系统状态；休息窗口由 src-tauri/src/eye_care/ 与 src/windows/eye-care/ 按需创建；device-battery/ 为离线 HID 电量采集，均不编入宿主
 ├── src-tauri/           # Tauri / Rust 桌面端（规则见 src-tauri/AGENTS.md）
 │   ├── src/             # 原生命令、后台服务、窗口管理
 │   ├── examples/        # 手动运行的 QQ / 微信探测程序，不进入发布产物

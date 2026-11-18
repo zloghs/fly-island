@@ -146,3 +146,5 @@ The `plugins/` directory and the `api.md` / `specification.md` documents describ
 ## 本分支插件 / Plugins in this branch
 
 [护眼提醒 / Eye Care](eye-care.md) integrates a native island page and settings, with optional installation. 本分支新增的 panel / number schema 见 [API](api.md) 与 [specification](specification.md)。正式发布门禁保持主分支默认值；本地测试按 [quickstart](quickstart.md) 临时启用。
+
+另一个示例是 [设备电量 / Device Battery](device-battery.md)：离线 HID 状态使用相同的宿主原生页面与设置控件。Both plugins use host-owned navigation and settings; Device Battery performs no networking.

@@ -24,6 +24,8 @@
 
 护眼提醒的计时与面板数据位于独立插件 `plugins/eye-care/`（`clock.rs` / `panel.rs`），其 `win32/` 只读空闲与全屏状态；0.2.0 的多屏休息画面由宿主 `eye_care/` 按需创建，层级保护位于宿主 `win32/eye_care.rs`。见 [插件架构](plugins.md) 和 [护眼说明](../plugins/eye-care.md)。
 
+设备电量实现于独立插件 `plugins/device-battery/`：`catalog.rs` 限定型号与 HID collection，`protocol.rs` 解析 G87 / 雷柏报告，`k99_v3.rs` 实现 K99 V3 的描述符校验、固定电量读取请求与位域解析，`hid.rs` 通过 hidapi 的 Windows 原生后端读取，`state.rs` 保留带时间的内存样本，`settings.rs` / `panel.rs` 处理配置与宿主页面，`main.rs` 组装后台读取和 stdio 生命周期。不改宿主或 Tauri 命令，详见 [电量插件](../plugins/device-battery.md)。
+
 根目录 `release-features.json` 是前端与 Rust 的发布功能开关单一来源：`plugins`、`mailOtp` 当前均关闭。前端通过 `features/releaseFlags.ts` 读取，`src-tauri/build.rs` 将同一配置转为编译期 cfg，由 `release_flags.rs` 导出常量。关闭时保留旧数据与 IPC 契约，插件宿主不启动进程、请求索引或修改配置，邮箱同步不提取验证码或为此请求正文，复制入口也不运行。每项仅改 JSON 中对应的一个值并重新构建即可恢复。回归运行器分别启动正式配置和开启保留功能的 Vite 测试实例；测试覆盖不通过生产运行时开关实现。
 
 Codex 的会话展示仍由 `agent_status/session_scan.rs` 读取 rollout 尾部；`codex_activity.rs` 在内存中增量保存完整文件的 turn 边界、用户提示时间和最后完成时间，避免长上下文把开始记录挤出尾部。按文件修改时间扫描所有日期目录，兼容旧目录中恢复的会话。前端 `features/agent-status/completion.ts` 统一判定显式完成时间变化，供弹出与声音使用。无新增持久化文件。实测与限制见 [Codex 会话排查记录](../investigations/codex-thinking-sessions-2026-11-15.md)。

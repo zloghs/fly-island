@@ -185,6 +185,8 @@ Codex 会话摘要（2026-11-15）：`list_agent_sessions` 可选返回 `lastCom
 
 ## 插件 API v1
 
+- 设备电量插件（2026-11-18）：id `device-battery`，runtime `device-battery.exe`，permissions / contributes 只有 `panel`，icon `battery`。设置 key：`scan-seconds`（`5` / `30` / `60` 字符串，默认 `30`）、`mchose` / `rapoo`（默认 true）、`devices`（逗号分隔的四位十六进制 `VID:PID`，默认空）、`low-percent`（1–50 的整数字符串，默认 `20`）、`diagnostics`（默认 false）、`language`（`zh-CN` / `en`，默认中文）。动作只有 `refresh`。复用现有完整快照协议，不新增宿主命令、权限枚举或持久化格式。
+
 - 新目录：`src-tauri/src/plugin_host/`、`src/features/plugins/`、`plugins/<id>/`（独立 crate）、`plugins/sdk/`、`docs/plugins/`。
 - 命令：`get_plugins()`、`get_plugins_index()`、`install_plugin(id)`、`set_plugin_enabled(id, enabled)`、`uninstall_plugin(id)`、`set_plugin_setting(id, key, value)`、`run_plugin_action(id, action)`、`configure_plugins(developerMode, indexUrl)`、`load_development_plugin(directory)`。
 - 事件：`plugins-changed`（无敏感数据；前端重新 get_plugins）。stdio RPC：`initialize`、`action`、`publish`，停止时可发送无 id 的可选 `shutdown` 通知；旧 v1 插件仍由宿主限时结束，完整 schema 见 `docs/plugins/api.md`。
