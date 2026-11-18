@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { MediaState } from "./api";
 import { lineEndMs, songOffsetKey, wordFill, type LyricWord } from "./lyrics/lrc";
 import { lyricClockAt, LYRIC_LEAD_MS } from "./lyrics/lyricClock";
@@ -96,25 +96,32 @@ function useOverflow(active: boolean) {
   const boxRef = useRef<HTMLSpanElement>(null);
   const [overflow, setOverflow] = useState(0);
 
-  const measure = useCallback(() => {
-    const box = boxRef.current;
-    if (!box) return;
-    const inner = box.firstElementChild;
-    const scale = box.clientWidth > 0 ? box.getBoundingClientRect().width / box.clientWidth : 1;
-    const width = active && inner instanceof HTMLElement && scale > 0
-      ? Math.max(0, Math.ceil(inner.getBoundingClientRect().width / scale) - box.clientWidth) : 0;
-    setOverflow((current) => (current === width ? current : width));
-  }, [active]);
-
-  useLayoutEffect(measure);
-
   useLayoutEffect(() => {
     const box = boxRef.current;
     if (!box) return;
-    const observer = new ResizeObserver(measure);
+    let frame: number | null = null;
+    const schedule = () => {
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        const inner = box.firstElementChild;
+        // Both widths use local CSS pixels: animated transforms and fractional
+        // screen coordinates must not feed a render -> layout -> setState loop.
+        const width = active && inner instanceof HTMLElement ? Math.max(0, inner.scrollWidth - box.clientWidth) : 0;
+        setOverflow((current) => (current === width ? current : width));
+      });
+    };
+    schedule();
+    const observer = new ResizeObserver(schedule);
     observer.observe(box);
-    return () => observer.disconnect();
-  }, [measure]);
+    if (box.firstElementChild) observer.observe(box.firstElementChild);
+    // Reconnect after a render because a new lyric/anchor may replace the inner
+    // node. Measurements always happen on a frame, never recursively in commit.
+    return () => {
+      observer.disconnect();
+      if (frame !== null) window.cancelAnimationFrame(frame);
+    };
+  });
 
   return { width: overflow, boxRef };
 }

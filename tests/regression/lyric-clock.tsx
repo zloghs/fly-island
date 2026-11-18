@@ -36,6 +36,7 @@ async function render(title: string, active: boolean, durationMs = 0, sourceApp:
         durationMs, positionMs: 0, updatedAt: anchor, sourceApp, album }}
       lyricsSettings={{ lyricsFolder: "", lyricsOnline: true, lyricsOffsetMs: 0, collapsedAdditionalLyrics: additional }} /></StrictMode>);
   });
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 35)); });
 }
 function check(condition: unknown, message: string) {
   if (!condition) throw new Error(message);
@@ -103,6 +104,24 @@ try {
   check(!document.querySelector(".collapsed-lyric--additional"), "关闭开关后恢复单行");
   await render("prefetched", true, 60000, null, "", true);
   check(!document.querySelector(".collapsed-lyric--additional"), "没有附加歌词时不留下空白行");
+  // A transform/resize can advance between layout reads. The old layout effect
+  // recursively set state while a rounded overflow alternated by a pixel (#185).
+  const originalRect = HTMLElement.prototype.getBoundingClientRect;
+  let measurements = 0;
+  HTMLElement.prototype.getBoundingClientRect = function () {
+    const rect = originalRect.call(this);
+    if (this.classList.contains("collapsed-lyric")) {
+      return new DOMRect(rect.x, rect.y, this.clientWidth + (++measurements % 2 ? 0.01 : -0.01), rect.height);
+    }
+    if (this.classList.contains("collapsed-lyric__text")) return new DOMRect(rect.x, rect.y, 480, rect.height);
+    return rect;
+  };
+  try {
+    await render("long", true, 60000);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 150)); });
+    check(Boolean(document.querySelector(".collapsed-lyric")), "边界存在亚像素抖动时不会递归更新并卸载岛屿");
+    check(measurements < 10, "不反复读取变换中的屏幕坐标");
+  } finally { HTMLElement.prototype.getBoundingClientRect = originalRect; }
   results.dataset.result = "passed";
   results.textContent = passed.join("\n");
 } catch (error) {
