@@ -18,9 +18,20 @@ export type SettingsLyricsText = {
   appleMusicTokenSaved: string;
   appleMusicTokenMissing: string;
   appleMusicTokenFailed: string;
+  collapsedAdditional: string;
+  collapsedAdditionalHint: string;
+  lx: string;
+  lxHint: string;
+  /** The LX row's second line while its API answers: the song it plays, if any. */
+  lxConnected: (song: string) => string;
+  lxIdle: string;
+  /** The LX row's second line when nothing answers on the port. */
+  lxOff: string;
 };
 
 export const zhCN: SettingsLyricsText = {
+  collapsedAdditional: "收起时显示附加歌词",
+  collapsedAdditionalHint: "当前句有翻译时，在原文下方显示；没有翻译时保持单行。",
   wordFill: "逐字歌词填充",
   title: "歌词",
   hint: "找到带时间轴的歌词时，音乐页会跟着播放滚动显示。某首歌的歌词对不上时，可以在音乐页上单独调它的快慢。",
@@ -40,9 +51,16 @@ export const zhCN: SettingsLyricsText = {
   appleMusicTokenSaved: "令牌已保存在本机的凭据管理器里。",
   appleMusicTokenMissing: "还没有保存令牌。",
   appleMusicTokenFailed: "无法读写本机凭据管理器，请重试。",
+  lx: "LX Music 端口",
+  lxHint: "岛直接从 LX Music 取它正在播放的歌词和翻译，不按歌名搜索，也不联网。先在 LX Music 的「设置 → 开放 API」里打开「启用开放 API 服务」；那边改过端口时，这里填一样的。",
+  lxConnected: (song) => `已连接 · 正在播放「${song}」`,
+  lxIdle: "已连接 · 没有在播放",
+  lxOff: "没连上：在 LX Music 的「设置 → 开放 API」里启用「开放 API 服务」，端口默认 23330",
 };
 
 export const en: SettingsLyricsText = {
+  collapsedAdditional: "Additional lyrics when collapsed",
+  collapsedAdditionalHint: "Show the current line’s translation underneath. Keep one line when no translation is available.",
   wordFill: "Word-by-word lyric fill",
   title: "Lyrics",
   hint: "When synced lyrics are found, the music page scrolls them along with the song. A song whose lyrics run out of step can be moved on its own on the music page.",
@@ -62,4 +80,9 @@ export const en: SettingsLyricsText = {
   appleMusicTokenSaved: "The token is saved in this computer's credential manager.",
   appleMusicTokenMissing: "No token saved yet.",
   appleMusicTokenFailed: "Could not access the local credential manager. Please retry.",
+  lx: "LX Music port",
+  lxHint: "The island asks LX Music for the lyrics and translation of the song it plays — no search by name, nothing sent online. Turn on \"Enable open API service\" in LX Music's Settings → Open API first; if the port was changed there, enter the same one here.",
+  lxConnected: (song) => `Connected · playing "${song}"`,
+  lxIdle: "Connected · nothing playing",
+  lxOff: "Not connected: turn on \"Enable open API service\" in LX Music's Settings → Open API; the default port is 23330",
 };

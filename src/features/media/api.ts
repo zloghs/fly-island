@@ -105,6 +105,22 @@ export function getMediaDiagnostics() {
   return invoke<MediaDiagnostics>("get_media_diagnostics");
 }
 
+// 对应 src-tauri/src/lx_music/client.rs 的 LxStatus：LX Music「开放 API 服务」的 /status。
+export type LxMusicStatus = {
+  /** `playing`、`paused`、`error` 或 `stoped`（LX 自己的拼法）。 */
+  status: string;
+  name: string;
+  singer: string;
+  albumName: string;
+  /** 歌曲总时长和已播放的进度，单位为秒。 */
+  duration: number;
+  progress: number;
+};
+/** LX Music 的本地 API 在 `port` 上的状态；0 用它的默认端口。对应 lx_music_status。 */
+export function getLxMusicStatus(port: number) {
+  return invoke<LxMusicStatus>("lx_music_status", { port });
+}
+
 // 对应 src-tauri/src/media_plugins/netease.rs 的 NeteasePluginStatus。
 export type NeteasePluginStatus = {
   state: "none" | "loaderOnly" | "installed" | "foreignLoader" | "unknown";

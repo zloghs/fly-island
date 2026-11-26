@@ -1,8 +1,9 @@
 //! Synced lyrics for the music page. Windows' media session gives the playing track's title,
 //! artist, album and duration but no lyrics, so they are looked up: first in a folder of .lrc
-//! files the user keeps (local.rs), then, only when the user turned online lyrics on, on LRCLIB
-//! (lrclib.rs) and, when the user also turned Chinese sources on, on Kugou (kugou.rs) and
-//! NetEase (netease.rs), which are unofficial. Online answers, and "not found", are cached in
+//! files the user keeps (local.rs), then on LX Music's own local API when that is the player
+//! (lxmusic.rs), which answers for the song it plays; then, only when the user turned online lyrics
+//! on, on LRCLIB (lrclib.rs) and, when the user also turned Chinese sources on, on Kugou (kugou.rs)
+//! and NetEase (netease.rs), which are unofficial. Online answers, and "not found", are cached in
 //! `lyrics-cache/` in the app data folder, so a track is asked for once. The text is returned as
 //! LRC, with the translation as a second LRC when the source has one; the island parses both.
 
@@ -15,6 +16,7 @@ mod kugou;
 mod kugou_cache;
 mod local;
 mod lrclib;
+mod lxmusic;
 mod matching;
 mod netease;
 mod online;
@@ -76,12 +78,15 @@ pub struct LyricsQuery {
     word_fill: bool,
     #[serde(default)]
     apple_music: bool,
+    /// Where LX Music's local API listens; 0 or absent means its default port.
+    #[serde(default)]
+    lx_port: Option<u16>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Lyrics {
-    /// "local", "lrclib", "kugou" or "netease".
+    /// "local", "lxmusic", "lrclib", "kugou", "netease", "qqmusic", "applemusic" or "soda".
     source: &'static str,
     /// Synced lyrics in LRC format.
     lrc: String,
@@ -121,6 +126,7 @@ type Answer = (&'static str, FoundLyrics);
 
 fn source_name(name: &str) -> &'static str {
     match name {
+        "lxmusic" => "lxmusic",
         "kugou" => "kugou",
         "netease" => "netease",
         "qqmusic" => "qqmusic",
@@ -209,6 +215,12 @@ fn for_display(source: &'static str, found: FoundLyrics, title: &str, artist: &s
     Lyrics { source, lrc: simplify(found.lrc), translation: found.translation.map(simplify), duration_ms: found.duration_ms }
 }
 
+/// The port to ask LX Music's own lyrics on, when LX Music is the player that plays.
+fn lx_port(query: &LyricsQuery) -> Option<u16> {
+    let is_lx = query.source_app_id.as_deref().is_some_and(crate::lx_music::is_app);
+    is_lx.then(|| crate::lx_music::port_or_default(query.lx_port))
+}
+
 /// Synced lyrics for the playing track, or null when none were found. Errors only when no
 /// source could be reached; that answer is not cached, so the next track change asks again.
 #[tauri::command]
@@ -225,6 +237,12 @@ pub async fn get_lyrics(app: AppHandle, query: LyricsQuery) -> Result<Option<Lyr
         if let Some(lrc) = found {
             return Ok(Some(for_display("local", FoundLyrics { lrc, translation: None, duration_ms: None }, &query.title, &query.artist)));
         }
+    }
+    // LX owns the recording identity. A temporary API miss must not select a different
+    // version by title from an online source or a legacy cache.
+    if let Some(port) = lx_port(&query) {
+        return lxmusic::fetch(port, &query.title, &query.artist, query.duration_ms, &query.album).await
+            .map(|found| found.map(|found| for_display("lxmusic", found, &query.title, &query.artist)));
     }
     // Native client caches precede online caches, so a newly downloaded word-timed lyric wins.
     if query.chinese {
@@ -351,6 +369,29 @@ mod tests {
         assert_eq!(shown.lrc, "[00:31.50] 划一根火柴 将慵倦的夜点亮");
         assert_eq!(shown.translation.as_deref(), Some("[00:31.50] 划一根火柴 将慵倦的夜点亮"));
         assert_eq!(for_display("lrclib", found(lrc, None), "餘香", "張小九").lrc, lrc);
+    }
+
+    #[test]
+    fn lx_music_is_asked_only_when_it_is_the_player() {
+        let query = |player: Option<&str>, lx_port: Option<u16>| LyricsQuery {
+            title: "篇章".into(),
+            artist: "张韶涵、王赫野".into(),
+            album: String::new(),
+            duration_ms: 0,
+            folder: String::new(),
+            online: false,
+            chinese: false,
+            track_id: None,
+            source_app_id: player.map(Into::into),
+            word_fill: false,
+            apple_music: false,
+            lx_port,
+        };
+        assert_eq!(lx_port(&query(Some("cn.toside.music.desktop.netease"), None)), Some(23330));
+        assert_eq!(lx_port(&query(Some("lx-music-desktop.exe"), Some(24000))), Some(24000));
+        assert_eq!(lx_port(&query(Some("lx-music-desktop.exe"), Some(0))), Some(23330), "an empty port is the default");
+        assert_eq!(lx_port(&query(Some("cloudmusic.exe"), None)), None);
+        assert_eq!(lx_port(&query(None, None)), None);
     }
 
     #[test]

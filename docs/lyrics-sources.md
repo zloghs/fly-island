@@ -3,6 +3,8 @@
 `get_lyrics` 继续返回增强 LRC（`[mm:ss.xx]<mm:ss.xx>字<mm:ss.xx>`），翻译单独返回 LRC。不新增命令，不改原来的歌曲校准或 SMTC 进度路径。
 
 - 用户指定的本地 LRC 最优先；开启中文来源时，仅为当前酷狗 / 汽水会话尝试客户端本机缓存，然后才读岛屿的在线缓存与在线来源。关闭在线查找后仍可只读这两种原生缓存；关闭中文来源则不读。
+- 当前播放器是 LX Music 时，在本地 LRC 之后、在线来源之前先问它自己的「开放 API 服务」（默认端口 23330，可在设置里改）：`/status` 核对它播放的确实是这首歌，`/lyric-all` 取 `lyric`、`tlyric` 与逐字歌词 `lxlyric`（Any Listen 格式 `<偏移,时长>字`，转成增强 LRC 的绝对时间）。这条路径不联网、不写 `lyrics-cache`，关掉在线歌词也照常可用；API 不可用、歌词尚未加载或身份不符时暂不显示歌词，不回退到同名在线搜索或旧缓存，避免串歌 / 版本错配。
+- LX 请求歌词后再次读取状态，发现中途切歌则丢弃结果；匹配保留 Live 等版本标记，并校验已知时长。请求禁用重定向且正文最多 2 MiB（包括分块响应），避免本地 API 离开回环地址或无限占用内存；异常行时间和逐字时间不会溢出。自动测试用本机 HTTP 服务覆盖切歌、正常响应、重定向和超大响应。
 - QQ 的 `QQ-` 标识既可能是数字 songid，也可能是 songmid。数字先经歌曲详情解析 mid；缺失 / 无效时按歌名、完整歌手集合和时长搜索。QQ ID 或 QQMusic AUMID 优先 QQ。先请求 `GetPlayLyricInfo` 的 QRC，失败后用带 Referer 的 web LRC。搜索保留版本信息，不混用 Live / 翻唱。
 - 酷狗只读 `%APPDATA%/KuGou8/KuGou.ini` 的 UTF-8 / UTF-16 `LyricPath`，再尝试 `%SystemDrive%/KuGou/Lyric`。完整文件名匹配后，校验 `[ti]` / `[ar]` / `[total]`，应用 `[offset]`，复用 KRC 解密。配置限 64 KiB，KRC 限 2 MiB，解压正文限 1 MiB。无法确定身份时继续原有在线来源。
 - 汽水只读 `%APPDATA%/SodaMusic/LunaCacheV2/entries.db`，不调用 LMDB 写入 API、不创建锁文件。复制不超过 256 MiB 的快照，再次读取两个元页核对并发提交；仅遍历最新已提交主库的 branch / leaf / overflow 页，拒绝循环和越界。MessagePack 支持 msgpackr 的 inline record 扩展；仅取匹配元数据的 `info.mediaDetail.lyrics`，支持明文 KRC 与 LRC。不读登录配置或音频。布局改变 / 缓存缺失 / 并发提交时放弃本次读取，照常在线按歌名查找。
@@ -25,6 +27,9 @@ QQ QRC 使用其历史 DES EDE 变体（32 位字节序、PC2 右半偏移、两
 本机只读的酷狗 / 汽水缓存沿用原来的严格匹配（完整歌名、完整歌手集合），不走评分。
 
 `cargo test --manifest-path src-tauri/Cargo.toml live_variants -- --ignored --nocapture` 用同一首歌的几种写法（带 Live、feat.、Remastered、繁体歌手）实际请求在线来源，手动检查识别率。
+
+LX 查询按完整歌手集合、保留版本信息的歌名、已知时长与专辑核对；前端缓存键包含 LX 专辑和时长，每 5 秒复查本地歌词，避免切歌时歌词尚未加载就永久缓存在线替代版本。媒体进度也优先采用匹配当前歌曲的 LX `/status` 读数，使用设置中的端口；API 关闭时继续原有 Windows 进度路径。
+
 
 ## 播放位置与诊断
 

@@ -5,6 +5,7 @@ import { SettingsLinkButton } from "../../components/settings/SettingsLinkButton
 import { SettingsRow } from "../../components/settings/SettingsRow";
 import { useTranslation } from "../../i18n";
 import { diagnosticMessageKey } from "./diagnosticStatus";
+import { isLxMusicPlayer } from "./lxMusic";
 import { useMediaDiagnostics } from "./useMediaDiagnostics";
 import { useNeteasePlugin } from "./useNeteasePlugin";
 import { NeteasePluginFeedback, pluginBusyLabel } from "./NeteasePluginFeedback";
@@ -12,7 +13,9 @@ import { INFLINK_URL } from "./NeteasePluginControls";
 import "./MediaCompatibilitySection.css";
 
 const LICENSE_LINKS = [["InfLink-rs", INFLINK_URL], ["BetterNCM", "https://github.com/std-microblock/chromatic"]] as const;
-const isNetease = (id: string) => /cloudmusic|netease/i.test(id);
+// LX Music's AUMID ends in `.netease` and its process name carries it too, but it is another
+// player: it needs no progress plugin, and its lyrics come from its own API.
+const isNetease = (id: string) => /cloudmusic|netease/i.test(id) && !isLxMusicPlayer(id);
 
 /** 网易云那一行：右边是“一键启用 / 卸载”，左边写状态和结果，和其他设置行一样排版。 */
 function NeteasePluginRow({ title, message }: { title: string; message?: string }) {
@@ -60,7 +63,11 @@ export function MediaCompatibilitySection() {
         : player.status === "smtcOff" && /kugou/i.test(player.sourceAppId) ? text.kugou : text[diagnosticMessageKey(player.status)](player.label);
       return isNetease(player.sourceAppId)
         ? <NeteasePluginRow key={player.sourceAppId} title={title} message={message} />
-        : <SettingsRow key={player.sourceAppId} title={title} description={message} />;
+        : <SettingsRow key={player.sourceAppId} title={title} description={<>
+            {message}
+            {isLxMusicPlayer(player.sourceAppId) && player.status !== "ok"
+              && <span className="media-compat__line">{text.lx}</span>}
+          </>} />;
     })}
     {!diagnostics.players.some((player) => isNetease(player.sourceAppId)) && <NeteasePluginRow title={t.music.plugin.player} />}
   </SettingsGroup>;

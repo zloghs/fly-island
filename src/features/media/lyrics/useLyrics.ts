@@ -1,10 +1,14 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { MediaState } from "../api";
+import { isLxMusicPlayer } from "../lxMusic";
 import { getLyrics, listenAppleMusicTokenChanged } from "./api";
 import { useNativePlugins } from "../../plugins";
 import { parseLrc, trackKey, withTranslations, type LyricLine } from "./lrc";
 
-export type LyricsSettings = { lyricsFolder: string; lyricsOnline: boolean; lyricsChinese?: boolean; lyricWordFill?: boolean; lyricsAppleMusic?: boolean };
+export type LyricsSettings = {
+  lyricsFolder: string; lyricsOnline: boolean; lyricsChinese?: boolean; lyricWordFill?: boolean;
+  lyricsAppleMusic?: boolean; lyricsLxPort?: number; collapsedAdditionalLyrics?: boolean;
+};
 
 type Found = { lookup: string; lines: LyricLine[]; durationMs: number; expiresAt: number };
 // The last few lookups' answers. The music page mounts again on every visit; without these its
@@ -13,6 +17,7 @@ const recent = new Map<string, Found>();
 const pending = new Map<string, Promise<Found>>();
 const RECENT_LIMIT = 8;
 const MISS_TTL_MS = 60_000;
+const LX_REFRESH_MS = 5_000;
 
 function remember(lookup: string, found: Found) {
   recent.delete(lookup);
@@ -66,17 +71,31 @@ export function useLyrics(
 ): { lines: LyricLine[] | null; notFound: boolean; durationMs: number } {
   const key = trackKey(mediaState);
   const folder = settings.lyricsFolder.trim();
-  const active = enabled && Boolean(key) && (folder !== "" || settings.lyricsOnline || settings.lyricsChinese === true);
-  const [found, setFound] = useState<Found | null>(null);
   // Read when the track changes, not on every poll that moves the position.
   const { title, artist, album, durationMs, trackId, sourceApp: sourceAppId } = mediaState;
+  // LX Music serves the lyrics of the song it plays, so it is worth asking even with online
+  // lookup off: the answer never leaves this computer.
+  const lxPlayer = isLxMusicPlayer(sourceAppId);
+  const lxPort = settings.lyricsLxPort ?? 0;
+  const active = enabled && Boolean(key) && (folder !== "" || settings.lyricsOnline || settings.lyricsChinese === true || lxPlayer);
+  const [found, setFound] = useState<Found | null>(null);
+  const [refresh, setRefresh] = useState(0);
   const chinese = settings.lyricsChinese === true;
   const wordFill = settings.lyricWordFill === true;
+  const lxRecording = lxPlayer ? `${album ?? ""}\u001f${durationMs}` : "";
   const appleMusic = useNativePlugins().appleMusicLyrics && settings.lyricsAppleMusic === true;
   const held = useSyncExternalStore(subscribe, readGeneration, () => 0);
-  const lookup = [key, folder, settings.lyricsOnline, chinese, appleMusic, trackId, sourceAppId, wordFill, held].join("\u001f");
+  const lookup = [key, folder, settings.lyricsOnline, chinese, appleMusic, trackId, sourceAppId, wordFill, held, lxPlayer ? lxPort : 0, lxRecording].join("\u001f");
 
   useEffect(listenForTokenChanges, []);
+
+  useEffect(() => {
+    if (!active || !lxPlayer) return;
+    // LX may still be loading lyrics after publishing new metadata. Retry without
+    // waiting for another track; do not permanently retain an early answer.
+    const timer = window.setInterval(() => setRefresh((value) => value + 1), LX_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [active, lxPlayer]);
 
   useEffect(() => {
     if (!active || !key || !title) return;
@@ -85,16 +104,19 @@ export function useLyrics(
     let cancelled = false;
     let request = pending.get(lookup);
     if (!request) {
-      request = getLyrics({ title, artist: artist ?? "", album: album ?? "", durationMs, folder, online: settings.lyricsOnline, chinese, appleMusic, trackId: trackId ?? null, sourceAppId, wordFill })
+      request = getLyrics({ title, artist: artist ?? "", album: album ?? "", durationMs, folder, online: settings.lyricsOnline, chinese, appleMusic, trackId: trackId ?? null, sourceAppId, wordFill, lxPort: lxPlayer ? lxPort : 0 })
       .then((lyrics) => {
         const parsed = lyrics ? parseLrc(lyrics.lrc).filter((line, index, all) => line.text || index < all.length - 1) : [];
-        const lines = withTranslations(parsed, lyrics?.translation ? parseLrc(lyrics.translation) : []);
+        const refreshed = withTranslations(parsed, lyrics?.translation ? parseLrc(lyrics.translation) : []);
+        const previous = recent.get(lookup);
+        // Revalidating unchanged LX lyrics must not reset the line clock or animations.
+        const lines = previous && JSON.stringify(previous.lines) === JSON.stringify(refreshed) ? previous.lines : refreshed;
         return { lookup, lines, durationMs: lyrics?.durationMs ?? 0,
-          expiresAt: lines.length ? Infinity : Date.now() + MISS_TTL_MS };
+          expiresAt: lxPlayer ? Date.now() + LX_REFRESH_MS : lines.length ? Infinity : Date.now() + MISS_TTL_MS };
       })
       .catch((error: unknown) => {
         console.error("Failed to look up lyrics", error);
-        return { lookup, lines: [], durationMs: 0, expiresAt: Date.now() + MISS_TTL_MS };
+        return { lookup, lines: [], durationMs: 0, expiresAt: Date.now() + (lxPlayer ? LX_REFRESH_MS : MISS_TTL_MS) };
       })
       .then((answer) => {
         remember(lookup, answer);
@@ -107,9 +129,9 @@ export function useLyrics(
     return () => {
       cancelled = true;
     };
-    // Duration/album refine the request, but late metadata must not restart the same lookup.
+    // Non-LX duration/album only refine a request; LX uses them to identify the recording.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, key, folder, settings.lyricsOnline, chinese, appleMusic, trackId, sourceAppId, wordFill, held]);
+  }, [active, key, folder, settings.lyricsOnline, chinese, appleMusic, trackId, sourceAppId, wordFill, held, lxPlayer, lxPort, lxRecording, refresh]);
 
   const current = recent.get(lookup) ?? (found?.lookup === lookup ? found : null);
   if (!active || !current) return { lines: null, notFound: false, durationMs: 0 };

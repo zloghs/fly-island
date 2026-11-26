@@ -5,8 +5,14 @@ export type LyricsSettingValues = {
   lyricsChinese: boolean;
   lyricWordFill: boolean;
   lyricsAppleMusic: boolean;
+  collapsedAdditionalLyrics: boolean;
+  /** The port LX Music's own API (its "开放 API 服务") listens on. */
+  lyricsLxPort: number;
   lyricsOffsetMs: number;
 };
+
+/** LX Music's API listens here until the user changes it in LX Music's own settings. */
+export const DEFAULT_LX_MUSIC_PORT = 23330;
 
 /**
  * No folder, no offset; lyrics are looked up online, Kugou and NetEase included, unless the user
@@ -19,8 +25,15 @@ export const DEFAULT_LYRICS_SETTINGS: LyricsSettingValues = {
   lyricsChinese: true,
   lyricWordFill: false,
   lyricsAppleMusic: false,
+  collapsedAdditionalLyrics: false,
+  lyricsLxPort: DEFAULT_LX_MUSIC_PORT,
   lyricsOffsetMs: 0,
 };
+
+/** A typed port; anything else (an empty box, a stray value) falls back to LX's own port. */
+function port(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 65535 ? value : DEFAULT_LX_MUSIC_PORT;
+}
 
 /**
  * Saved lyrics settings: whether lyrics are looked up online, and the Chinese sources with them.
@@ -34,5 +47,7 @@ export function normalizeLyricsSettings(saved: Partial<Record<keyof LyricsSettin
     lyricsChinese: saved?.lyricsChinese !== false,
     lyricWordFill: saved?.lyricWordFill === true,
     lyricsAppleMusic: saved?.lyricsAppleMusic === true,
+    collapsedAdditionalLyrics: saved?.collapsedAdditionalLyrics === true,
+    lyricsLxPort: port(saved?.lyricsLxPort),
   };
 }

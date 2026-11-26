@@ -24,6 +24,11 @@ struct PlayerDiagnostic {
 
 fn player_kind(id: &str) -> Option<&'static str> {
     let id = id.to_ascii_lowercase();
+    // Before the NetEase test: LX Music's AUMID ends in `.netease` but it is another program, and
+    // the NetEase plugin does not apply to it.
+    if crate::lx_music::is_app(&id) {
+        return Some(if id.contains("netease") { "lx-music-desktop-netease.exe" } else { "lx-music-desktop.exe" });
+    }
     if id.contains("cloudmusic") || id.contains("netease") { Some("cloudmusic.exe") }
     else if id.contains("qqmusic") { Some("QQMusic.exe") }
     else if id.contains("kugou") { Some("KuGou.exe") }
@@ -75,7 +80,8 @@ fn diagnostic(id: String, has_session: bool, has_timeline: bool, has_plugin_trac
 
 pub(super) fn get() -> Result<MediaDiagnostics, String> {
     session::on_media_thread(|| {
-        let known = ["cloudmusic.exe", "QQMusic.exe", "KuGou.exe", "SodaMusic.exe"];
+        let known = ["cloudmusic.exe", "QQMusic.exe", "KuGou.exe", "SodaMusic.exe",
+            "lx-music-desktop.exe", "lx-music-desktop-netease.exe"];
         // 即使进程路径不可读，也保留进程存在这一事实。
         let running: Vec<_> = known.iter().filter_map(|name| {
             let ids = win32::process_tree::process_ids_named(name);
@@ -127,6 +133,15 @@ mod tests {
         assert_eq!(status(Some("KuGou.exe"), false, false, None), "smtcOff");
         assert_eq!(status(None, true, false, None), "noTimeline");
         assert_eq!(status(None, true, true, None), "ok");
+    }
+    #[test]
+    fn lx_music_is_told_apart_from_netease_cloud_music() {
+        // Its AUMID ends in `.netease`, and its process name carries the build.
+        assert_eq!(player_kind("cn.toside.music.desktop.netease"), Some("lx-music-desktop-netease.exe"));
+        assert_eq!(player_kind("cn.toside.music.desktop"), Some("lx-music-desktop.exe"));
+        assert_eq!(player_kind("cloudmusic.exe"), Some("cloudmusic.exe"));
+        // It reports no timeline like the other players without a progress plugin, not as NetEase.
+        assert_eq!(status(player_kind("cn.toside.music.desktop.netease"), true, false, Some("3.0.2")), "noTimeline");
     }
     #[test]
     fn rejects_untrusted_position_only_timelines() {

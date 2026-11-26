@@ -1,5 +1,26 @@
 /* The lyric line on the collapsed island: the todo text's look; a new line replaces the last at once. */
+.collapsed-lyrics {
+  display: block;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Both lines fit the summary's 28px slot, including enlarged island fonts. */
+.collapsed-lyrics--additional > .collapsed-lyric {
+  font-size: min(12px, calc(12px * var(--island-font-scale, 1)));
+  line-height: 14px;
+}
+
+.collapsed-lyrics--additional > .collapsed-lyric--additional {
+  font-size: min(10px, calc(10px * var(--island-font-scale, 1)));
+  line-height: 12px;
+  font-weight: 400;
+  color: var(--text-2);
+}
+
 .collapsed-lyric {
+  display: block;
   min-width: 0;
   flex: 1;
   overflow: hidden;
@@ -7,7 +28,7 @@
   font-size: calc(13px * var(--island-font-scale, 1));
   font-weight: 600;
   line-height: 1.2;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
@@ -23,8 +44,33 @@
   to { background-position: 0 0; }
 }
 
+/*
+ * A line wider than the space it has slides left while it is sung, so the whole of it is readable
+ * and the words light up where the singing is. No fade obscures the final characters.
+ */
+.collapsed-lyric__text {
+  display: inline-block;
+  width: max-content;
+  white-space: nowrap;
+}
+
+.collapsed-lyric__text--follow {
+  animation-name: collapsed-lyric-follow;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+
+@keyframes collapsed-lyric-follow {
+  to {
+    transform: translateX(var(--collapsed-lyric-shift, 0));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .collapsed-lyric__word { animation-timing-function: step-start; }
+
+  /* No sliding: the line is cut at the island's edge, and the words jump rather than fill. */
+  .collapsed-lyric__text--follow { animation: none; }
 }
 
 /* The song's cover beside it, when Appearance → Collapsed island asks for it. */

@@ -179,6 +179,7 @@ mod tests {
             source_app_id: None,
             word_fill: false,
             apple_music: false,
+            lx_port: None,
         }
     }
 

@@ -1,0 +1,7 @@
+/* The LX Music row's first line: whether its API answers, above the hint. */
+.lyrics-settings__line {
+  display: block;
+  margin-bottom: 2px;
+  overflow-wrap: anywhere;
+  color: var(--text-2);
+}

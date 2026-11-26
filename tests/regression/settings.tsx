@@ -1,3 +1,4 @@
+import { checkCollapsedLyrics } from "./settingsLyrics";
 // pnpm dev, then open /tests/regression/settings.html. Without ?test=1 the page is for visual QA:
 // ?page=<category> opens that page, ?locale=en switches the language.
 // ?test=1 runs the checks below; resize the viewport to 580px wide to cover the narrowest window.
@@ -106,11 +107,9 @@ if (!automated) {
       const rowCount = panel.querySelectorAll(".settings-row").length;
       // Agents 11 -> 13: the WorkBuddy session source and its sign-in row (2026-11-13 老板要求 WorkBuddy 会话来源).
       // Appearance: 9 -> 12 on 2026-11-13 for island font size (+1) and notch auto-width/height (+2).
-      // 12 -> 13: 2026-11-13 老板要求的颜色预设行 (+1); auto-width initially hides the manual width row.
-      // General 11 -> 14: the three independent keep-visible switches requested 2026-11-13.
+      // 12 -> 13: 2026-11-13 老板要求的颜色预设行 (+1); auto-width initially hides the manual width row. General 11 -> 14: the three independent keep-visible switches requested 2026-11-13.
       // Appearance +1: optional top-edge curves (2026-11-13); the size row is hidden by default.
-      // Appearance 14 -> 16: the colour scheme and the material the owner asked for on 2026-11-14
-      // (the glass strength row shows only with a glass).
+      // Appearance 14 -> 16: the colour scheme and the material asked for on 2026-11-14 (the glass row shows only with a glass).
       await checkGroups(category, panel, check);
       if (category === "todos") {
         await checkTodoRotation(panel, check);
@@ -118,11 +117,12 @@ if (!automated) {
       }
       // Appearance 16 -> 19: the page text colour row and the whole-look presets (empty state + name row); 24 -> 28: idle text, pending display, auto min/max.
       // General: v3.2.6 adds Ctrl + wheel and game mode's "still show notifications"; appearance +3 open and collapsed corners; clipboard +1 storage folder.
-      // 2026-11-19: the tucked look (+1) moves from general (16 -> 15) to appearance (22 -> 23). 2026-11-26: agents 13 -> 15, sort and grouping left the island header.
-      const maxRows = category === "agents" ? 15 : category === "general" ? 19 : category === "appearance" ? 28 : category === "clipboard" ? 10 : category === "todos" ? 9 : 8;
+      // 2026-11-19: the tucked look (+1) moves from general (16 -> 15) to appearance (22 -> 23). 2026-11-26: agents 13 -> 15, sort and grouping left the island header; music 9: the LX port and the collapsed extra-lyrics toggle.
+      const maxRows = category === "agents" ? 15 : category === "general" ? 19 : category === "appearance" ? 28 : category === "clipboard" ? 10 : category === "todos" ? 9 : category === "music" ? 9 : 8;
       if (category === "clipboard") check([...panel.querySelectorAll("label")].some((label) =>
         label.textContent === "悬停时预览完整内容" && label.control?.matches('[role="switch"]:not(:checked)')),
       "Clipboard hover preview defaults off in settings");
+      if (category === "music") await checkCollapsedLyrics(panel, check);
       if (category === "appearance") {
         const row = [...panel.querySelectorAll<HTMLElement>(".settings-row")].find((item) => item.textContent?.includes("贴边圆角"))!;
         const toggle = row.querySelector<HTMLInputElement>("[role='switch']")!;

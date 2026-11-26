@@ -8,6 +8,7 @@ mod file_icons;
 mod file_shelf;
 mod island;
 mod lyrics;
+mod lx_music;
 mod media_control;
 mod media_plugins;
 mod legacy_migration;
@@ -171,6 +172,7 @@ pub fn run() {
             eye_care;
             device_battery;
             lyrics;
+            lx_music;
             clipboard_history;
             translation;
             settings_window

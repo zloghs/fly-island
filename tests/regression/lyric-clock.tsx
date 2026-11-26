@@ -16,21 +16,27 @@ const anchor = now;
 let finish: ((value: unknown) => void) | undefined;
 const calls: string[] = [];
 const lrc = "[00:01.00]first\n[00:05.00]second\n[00:09.00]third";
+// One line far wider than the 240px fixture, so it has to slide to be read.
+const longLrc = "[00:01.00]这是一句特别特别长的歌词，长到收起的岛一行放不下，必须整句向左滑过去才能看完\n[00:21.00]下一句";
 mockIPC((command, payload) => {
   if (command !== "get_lyrics") return null;
   const { title } = (payload as { query: { title: string } }).query;
   calls.push(title);
   if (title === "late") return new Promise((resolve) => { finish = resolve; });
   if (title === "failed") return Promise.reject(new Error("lookup failed fixture"));
+  if (title === "long") return { lrc: longLrc };
+  if (title === "translated") return { lrc, translation: "[00:01.00]第一句翻译\n[00:05.00]第二句翻译\n[00:09.00]第三句翻译" };
+  if (title === "lx-retry" && calls.filter((call) => call === title).length === 1) return null;
   return { lrc };
 });
-async function render(title: string, active: boolean, durationMs = 0) {
+async function render(title: string, active: boolean, durationMs = 0, sourceApp: string | null = null, album = "", additional = false) {
   await act(async () => {
     root.render(<StrictMode><CollapsedLyric active={active}
       mediaState={{ ...DEFAULT_MEDIA_STATE, title, artist: "artist", available: true, playbackStatus: "playing",
-        durationMs, positionMs: 0, updatedAt: anchor }}
-      lyricsSettings={{ lyricsFolder: "", lyricsOnline: true, lyricsOffsetMs: 0 }} /></StrictMode>);
+        durationMs, positionMs: 0, updatedAt: anchor, sourceApp, album }}
+      lyricsSettings={{ lyricsFolder: "", lyricsOnline: true, lyricsOffsetMs: 0, collapsedAdditionalLyrics: additional }} /></StrictMode>);
   });
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 35)); });
 }
 function check(condition: unknown, message: string) {
   if (!condition) throw new Error(message);
@@ -55,6 +61,67 @@ try {
   await render("prefetched", false);
   await render("failed", false);
   check(calls.filter((title) => title === "failed").length === 2, "失败缓存过期后可重试");
+  // A line too wide for the island slides over exactly the span it is sung; a short one stays put.
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  now = anchor + 5000;
+  await render("long", true, 60_000);
+  const box = document.querySelector(".collapsed-lyric")!;
+  const inner = box.firstElementChild as HTMLElement;
+  check(inner.scrollWidth > box.clientWidth && box.classList.contains("collapsed-lyric--overflow"),
+    `长句按超出的宽度滑动（${inner.scrollWidth} > ${box.clientWidth}）`);
+  check(inner.style.animationDelay === "-4000ms", `滑动从这句已唱到的位置开始（${inner.style.animationDelay}）`);
+  check(inner.style.animationDuration === "19300ms", `滚动提前完成，为句尾留出显示时间（${inner.style.animationDuration}）`);
+  if (reduced) {
+    check(getComputedStyle(inner).animationName === "none", "要求减少动效时不滑动");
+  } else {
+    const before = getComputedStyle(inner).transform;
+    check(getComputedStyle(inner).animationName === "collapsed-lyric-follow", "整句随播放向左移动");
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 300)); });
+    check(getComputedStyle(inner).transform !== before, "文字确实在移动");
+    for (const animation of inner.getAnimations()) animation.currentTime = 19300;
+    const end = inner.getBoundingClientRect();
+    const edge = box.getBoundingClientRect();
+    check(end.right <= edge.right + 1 && end.right >= edge.right - 2, "滚动结束后最后一个字完整进入可见区");
+    check(getComputedStyle(box).maskImage === "none" && getComputedStyle(box).textOverflow === "clip", "句尾不被渐隐或省略号遮住");
+  }
+  await render("prefetched", true, 60_000);
+  check(!document.querySelector(".collapsed-lyric")!.classList.contains("collapsed-lyric--overflow"), "放得下的句子不滑动");
+  await render("lx-retry", true, 60000, "cn.toside.music.desktop", "album-a");
+  check(text() === "lx-retry · artist", "LX 暂无歌词时显示歌名");
+  now += 5001;
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 5100)); });
+  check(calls.filter((call) => call === "lx-retry").length === 2 && text() !== "lx-retry · artist", "LX 无需切歌也会重试并显示稍后加载的歌词");
+  await render("lx-retry", true, 60000, "cn.toside.music.desktop", "album-b");
+  check(calls.filter((call) => call === "lx-retry").length === 3, "同名歌曲更换专辑不复用旧歌词");
+  now = anchor + 6100;
+  await render("translated", true, 60000);
+  check(!document.querySelector(".collapsed-lyric--additional"), "默认仍显示单行歌词");
+  document.getElementById("fixture")!.style.setProperty("--island-font-scale", "1.2");
+  await render("translated", true, 60000, null, "", true);
+  check(document.querySelector(".collapsed-lyric--additional")?.textContent === "第二句翻译", "开关开启后显示当前句对应的翻译");
+  check(document.querySelector(".collapsed-lyrics")!.getBoundingClientRect().height <= 28, "双行歌词在放大字体时仍完整放入 28px 摘要区域");
+  await render("translated", true, 60000, null, "", false);
+  check(!document.querySelector(".collapsed-lyric--additional"), "关闭开关后恢复单行");
+  await render("prefetched", true, 60000, null, "", true);
+  check(!document.querySelector(".collapsed-lyric--additional"), "没有附加歌词时不留下空白行");
+  // A transform/resize can advance between layout reads. The old layout effect
+  // recursively set state while a rounded overflow alternated by a pixel (#185).
+  const originalRect = HTMLElement.prototype.getBoundingClientRect;
+  let measurements = 0;
+  HTMLElement.prototype.getBoundingClientRect = function () {
+    const rect = originalRect.call(this);
+    if (this.classList.contains("collapsed-lyric")) {
+      return new DOMRect(rect.x, rect.y, this.clientWidth + (++measurements % 2 ? 0.01 : -0.01), rect.height);
+    }
+    if (this.classList.contains("collapsed-lyric__text")) return new DOMRect(rect.x, rect.y, 480, rect.height);
+    return rect;
+  };
+  try {
+    await render("long", true, 60000);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 150)); });
+    check(Boolean(document.querySelector(".collapsed-lyric")), "边界存在亚像素抖动时不会递归更新并卸载岛屿");
+    check(measurements < 10, "不反复读取变换中的屏幕坐标");
+  } finally { HTMLElement.prototype.getBoundingClientRect = originalRect; }
   results.dataset.result = "passed";
   results.textContent = passed.join("\n");
 } catch (error) {
